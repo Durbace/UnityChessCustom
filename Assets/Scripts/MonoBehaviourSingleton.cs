@@ -4,7 +4,7 @@ public class MonoBehaviourSingleton<T> : MonoBehaviour where T : MonoBehaviourSi
 	public static T Instance {
 		get {
 			if (instance == null) {
-				instance = FindObjectOfType<T>()
+				instance = FindAnyObjectByType<T>()
 				           ?? new GameObject().AddComponent<T>();
 			}
 
