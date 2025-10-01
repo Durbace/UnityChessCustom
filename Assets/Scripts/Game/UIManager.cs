@@ -22,21 +22,37 @@ public class UIManager : MonoBehaviourSingleton<UIManager> {
 	private Timeline<FullMoveUI> moveUITimeline;
 	private Color buttonColor;
 
-	private void Start() {
-		GameManager.NewGameStartedEvent += OnNewGameStarted;
-		GameManager.GameEndedEvent += OnGameEnded;
-		GameManager.MoveExecutedEvent += OnMoveExecuted;
-		GameManager.GameResetToHalfMoveEvent += OnGameResetToHalfMove;
-		
-		moveUITimeline = new Timeline<FullMoveUI>();
-		foreach (Text boardInfoText in boardInfoTexts) {
-			boardInfoText.color = textColor;
-		}
+    public void StartHumanVsBlackBot() => GameManager.Instance.StartNewGame(false, true);
+    public void StartHumanVsHuman() => GameManager.Instance.StartNewGame(false, false);
+    public void StartBotVsBot() => GameManager.Instance.StartNewGame(true, true);
 
-		buttonColor = new Color(backgroundColor.r - buttonColorDarkenAmount, backgroundColor.g - buttonColorDarkenAmount, backgroundColor.b - buttonColorDarkenAmount);
-	}
+    private void Start()
+    {
+        GameManager.NewGameStartedEvent += OnNewGameStarted;
+        GameManager.GameEndedEvent += OnGameEnded;
+        GameManager.MoveExecutedEvent += OnMoveExecuted;
+        GameManager.GameResetToHalfMoveEvent += OnGameResetToHalfMove;
 
-	private void OnNewGameStarted() {
+        moveUITimeline = new Timeline<FullMoveUI>();
+
+        foreach (var t in boardInfoTexts) t.color = textColor;
+
+        buttonColor = new Color(
+            backgroundColor.r - buttonColorDarkenAmount,
+            backgroundColor.g - buttonColorDarkenAmount,
+            backgroundColor.b - buttonColorDarkenAmount
+        );
+    }
+
+    private void OnDestroy()
+    {
+        GameManager.NewGameStartedEvent -= OnNewGameStarted;
+        GameManager.GameEndedEvent -= OnGameEnded;
+        GameManager.MoveExecutedEvent -= OnMoveExecuted;
+        GameManager.GameResetToHalfMoveEvent -= OnGameResetToHalfMove;
+    }
+
+    private void OnNewGameStarted() {
 		UpdateGameStringInputField();
 		ValidateIndicators();
 		

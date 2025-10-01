@@ -11,8 +11,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 	public static event Action GameEndedEvent;
 	public static event Action GameResetToHalfMoveEvent;
 	public static event Action MoveExecutedEvent;
-	
-	public Board CurrentBoard {
+    [SerializeField] private bool whiteIsBot = false;
+    [SerializeField] private bool blackIsBot = true;
+
+    public Board CurrentBoard {
 		get {
 			game.BoardTimeline.TryGetCurrent(out Board currentBoard);
 			return currentBoard;
@@ -82,39 +84,48 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 #endif
 	}
 
-	private void OnDestroy() {
-		uciEngine?.ShutDown();
-	}
-	
+    private void OnDestroy()
+    {
+        VisualPiece.VisualPieceMoved -= OnPieceMoved;
+        uciEngine?.ShutDown();
+    }
+
 #if AI_TEST
 	public async void StartNewGame(bool isWhiteAI = true, bool isBlackAI = true) {
 #else
-	public async void StartNewGame(bool isWhiteAI = false, bool isBlackAI = false) {
+    public async void StartNewGame(bool isWhiteAIParam = false, bool isBlackAIParam = false)
+    {
+        game = new Game();
+
+        isWhiteAI = (isWhiteAIParam || whiteIsBot);
+        isBlackAI = (isBlackAIParam || blackIsBot);
+
+        if (isWhiteAI || isBlackAI)
+        {
+            if (uciEngine == null)
+            {
+                uciEngine = new MockUCIEngine();
+                uciEngine.Start();
+            }
+
+            await uciEngine.SetupNewGame(game);
+            NewGameStartedEvent?.Invoke();
+
+            if (isWhiteAI && SideToMove == Side.White)
+            {
+                var bestMove = await uciEngine.GetBestMove(3000);
+                ExecuteAIMoveVisual(bestMove);
+            }
+        }
+        else
+        {
+            NewGameStartedEvent?.Invoke();
+        }
+    }
+
 #endif
-		game = new Game();
 
-		this.isWhiteAI = isWhiteAI;
-		this.isBlackAI = isBlackAI;
-
-		if (isWhiteAI || isBlackAI) {
-			if (uciEngine == null) {
-				uciEngine = new MockUCIEngine();
-				uciEngine.Start();
-			}
-			
-			await uciEngine.SetupNewGame(game);
-			NewGameStartedEvent?.Invoke();
-
-			if (isWhiteAI) {
-				Movement bestMove = await uciEngine.GetBestMove(10_000);
-				DoAIMove(bestMove);
-			}
-		} else {
-			NewGameStartedEvent?.Invoke();
-		}
-	}
-
-	public string SerializeGame() {
+    public string SerializeGame() {
 		return serializersByType.TryGetValue(selectedSerializationType, out IGameSerializer serializer)
 			? serializer?.Serialize(game)
 			: null;
@@ -237,29 +248,39 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 			movedPieceTransform.position = closestBoardSquareTransform.position;
 		}
 
-		bool gameIsOver = game.HalfMoveTimeline.TryGetCurrent(out HalfMove lastHalfMove)
-		                  && lastHalfMove.CausedStalemate || lastHalfMove.CausedCheckmate;
-		if (!gameIsOver
-			&& (SideToMove == Side.White && isWhiteAI
-			    || SideToMove == Side.Black && isBlackAI)
-		) {
-			Movement bestMove = await uciEngine.GetBestMove(10_000);
-			DoAIMove(bestMove);
-		}
+        if ((isWhiteAI && SideToMove == Side.White) || (isBlackAI && SideToMove == Side.Black))
+        {
+            if (uciEngine == null)
+            {
+                uciEngine = new MockUCIEngine();
+                uciEngine.Start();
+                await uciEngine.SetupNewGame(game);
+            }
+            var bestMove = await uciEngine.GetBestMove(3000);
+            ExecuteAIMoveVisual(bestMove);
+        }
+
+
+        //bool gameIsOver = game.HalfMoveTimeline.TryGetCurrent(out HalfMove lastHalfMove)
+		      //            && lastHalfMove.CausedStalemate || lastHalfMove.CausedCheckmate;
+		
 	}
 
-	private void DoAIMove(Movement move) {
-		GameObject movedPiece = BoardManager.Instance.GetPieceGOAtPosition(move.Start);
-		GameObject endSquareGO = BoardManager.Instance.GetSquareGOByPosition(move.End);
-		OnPieceMoved(
-			move.Start,
-			movedPiece.transform,
-			endSquareGO.transform,
-			(move as PromotionMove)?.PromotionPiece
-		);
-	}
+    private void ExecuteAIMoveVisual(Movement move)
+    {
+        if (move == null) return;
+        GameObject movedPiece = BoardManager.Instance.GetPieceGOAtPosition(move.Start);
+        GameObject endSquareGO = BoardManager.Instance.GetSquareGOByPosition(move.End);
+        OnPieceMoved(
+            move.Start,
+            movedPiece.transform,
+            endSquareGO.transform,
+            (move as PromotionMove)?.PromotionPiece
+        );
+    }
 
-	public bool HasLegalMoves(Piece piece) {
+
+    public bool HasLegalMoves(Piece piece) {
 		return game.TryGetLegalMovesForPiece(piece, out _);
 	}
 }

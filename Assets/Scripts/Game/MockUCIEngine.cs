@@ -8,16 +8,16 @@ using Debug = UnityEngine.Debug;
 namespace UnityChess.Engine {
 	public class MockUCIEngine : IUCIEngine {
 		private Process engineProcess;
-		private string exePath = Application.streamingAssetsPath + "/UCIEngines/pigeon-1.5.1/pigeon-1.5.1.exe";
-		private bool isReady;
+        private string exePath = Application.streamingAssetsPath + "/UCIEngines/stockfish/stockfish.exe";
+        private bool isReady;
 		private Timer timer;
 		private float timeMS;
 		
 		private FENSerializer fenSerializer = new FENSerializer();
 		private bool isSearchingForBestMove;
 		private Game game;
-		
-		public async void Start() {
+        
+        public async void Start() {
 			timer = new Timer(100);
 			timer.Elapsed += (_, _) => timeMS += 100;
 			
